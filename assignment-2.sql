@@ -1,8 +1,28 @@
 --Task 1: Advanced SQL Queries 
-
+--Retrieve the top 3 customers with the highest total purchase amount.
 SELECT C.Name ,C.CustomerId ,SUM(O.totalamount) AS TotalPurchase  FROM Customers C JOIN Orders O ON 
 O.CustomerId = C.CustomerId GROUP BY C.CustomerId ORDER BY TotalPurchase DESC  LIMIT 3
 
+--Show monthly sales revenue for the last 6 months using PIVOT.
+SELECT 
+    P.ProductName,
+    SUM(CASE WHEN EXTRACT(MONTH FROM O.OrderDate) = EXTRACT(MONTH FROM CURRENT_DATE) - 5 THEN O.TotalAmount ELSE 0 END) AS "Month_1",
+    SUM(CASE WHEN EXTRACT(MONTH FROM O.OrderDate) = EXTRACT(MONTH FROM CURRENT_DATE) - 4 THEN O.TotalAmount ELSE 0 END) AS "Month_2",
+    SUM(CASE WHEN EXTRACT(MONTH FROM O.OrderDate) = EXTRACT(MONTH FROM CURRENT_DATE) - 3 THEN O.TotalAmount ELSE 0 END) AS "Month_3",
+    SUM(CASE WHEN EXTRACT(MONTH FROM O.OrderDate) = EXTRACT(MONTH FROM CURRENT_DATE) - 2 THEN O.TotalAmount ELSE 0 END) AS "Month_4",
+    SUM(CASE WHEN EXTRACT(MONTH FROM O.OrderDate) = EXTRACT(MONTH FROM CURRENT_DATE) - 1 THEN O.TotalAmount ELSE 0 END) AS "Month_5",
+    SUM(CASE WHEN EXTRACT(MONTH FROM O.OrderDate) = EXTRACT(MONTH FROM CURRENT_DATE) THEN O.TotalAmount ELSE 0 END) AS "Current_Month"
+FROM 
+    Products P 
+JOIN 
+    OrderDetails OD ON P.ProductId = OD.ProductId 
+JOIN 
+    Orders O ON O.OrderId = OD.OrderId
+GROUP BY 
+    P.ProductName;
+
+
+--Find the second most expensive product in each category using window functions.
 
 SELECT ProductName ,Price , Category FROM (SELECT ProductName ,Price , Category ,RANK() OVER (PARTITION BY Category ORDER BY Price DESC ) AS RankOfProduct FROM Products)
 AS ranked_products WHERE ranked_products.RankOfProduct=2;
@@ -124,6 +144,8 @@ SELECT create_order_with_transaction(3,ARRAY[1,2,3],ARRAY[1,1,1000]);
 
 --Task 4: SQL for Reporting and Analytics
 
+--Generate a customer purchase report using ROLLUP that includes:
+
 SELECT C.Name AS CustomerName,P.ProductName, SUM(OD.Quantity) AS Quantity,SUM(OD.Subtotal) AS Subtotal,SUM(O.totalamount) AS GrandTotal 
 FROM Orders O
 JOIN Customers C ON O.CustomerId = C.CustomerId
@@ -131,6 +153,8 @@ JOIN OrderDetails OD ON OD.OrderId = O.OrderId
 JOIN Products P ON OD.ProductId = P.ProductId
 GROUP BY  ROLLUP (c.Name,P.ProductName) HAVING (C.Name IS NOT NULL AND P.ProductName IS NOT NULL) 
 ORDER BY (C.Name,P.ProductName);
+
+-- Use window functions (LEAD, LAG) to show how a customer's order amount compares to their previous order amount.
 
 SELECT C.Name AS CustomerName,  O.OrderDate,O.TotalAmount AS CurrentAmount ,LAG(O.TotalAmount) OVER (
 PARTITION BY O.CustomerID ORDER BY O.OrderDate) AS PreviousAmount,

@@ -30,7 +30,8 @@ This database is in **Third Normal Form (3NF)** because:
 - **3NF**: No transitive dependencies; all attributes depend only on the primary key.
 ---
 ## **Files Included**
-- `ecom.sql` → Contains SQL queries for database setup, insertion.
+- `assignment-1.sql` → Contains SQL queries for assignment-1.
+- `assignment-2.sql` - Contains SQL queries for assignment-2.
 - `erdiagram.png` → Entity-Relationship Diagram. 
 - `README.md` → Explanation of database design.
 - **This database ensures data integrity, eliminates redundancy, and optimizes performance!**
