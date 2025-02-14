@@ -98,9 +98,6 @@ $$ LANGUAGE plpgsql; --function language
 --call the function with customerId=3, productArray=[1,2,3], quantityArray=[1,1,1]
 SELECT create_order(3,ARRAY[1,2,3],ARRAY[1,1,1]);
 
-
-
-
 --Function to get total amount spent by a customer
 CREATE OR REPLACE FUNCTION getCustomerSpent(Customer_ID INT)
 RETURNS INT AS $$
@@ -128,7 +125,10 @@ SELECT getCustomerSpent(4); --call the function with CustomerId=4
 */
 
 --Function to create order with transaction and retry mechanism
-CREATE OR REPLACE FUNCTION create_order_with_transaction(customerId INT, productArray INT[], quantityArray INT[])
+
+--for complete update and deadlock handling
+-- if single stock not available then whole transaction will be rolled back
+CREATE OR REPLACE FUNCTION create_order_with_transaction_complete(customerId INT, productArray INT[], quantityArray INT[])
 RETURNS INT AS $$
 DECLARE
     order_ID INT; --variable to store orderID
@@ -140,19 +140,21 @@ DECLARE
     retry INT := 0; --variable to store retry count
 BEGIN
    
-           -- SAVEPOINT start_order;
+            --SAVEPOINT start_order;
            -- insert into orders table and store orderID in order_ID total amount is 0 initially for the order
             INSERT INTO Orders (CustomerId, TotalAmount)
             VALUES (customerId, 0)
             RETURNING OrderID INTO order_ID;
            -- iterate over productArray
             FOR i IN 1 .. array_length(productArray, 1) LOOP
+            --  INTO _stock, _price to store stock and price of product
                 SELECT Stock, Price INTO _stock, _price FROM Products WHERE ProductId = productArray[i] FOR UPDATE;
-            
+                 -- FOR UPDATE will lock the row until transaction is completed used for concurrency control
                 IF _stock < quantityArray[i] THEN --if stock is insufficient then raise exception
                     RAISE EXCEPTION 'Out of Stock for Product ID %', productArray[i];
-                    ROLLBACK; --rollback transaction
-                    CONTINUE; -- continue to next iteration
+         --rollback transaction
+                    -- ROLLBACK -- return 0 if stock is insufficient
+                    
                 END IF;
               -- insert into orderdetails table with orderID, productID, quantity and subtotal
                 INSERT INTO OrderDetails (OrderID, Quantity, ProductId, Subtotal)
@@ -178,8 +180,9 @@ BEGIN
             
             RETURN order_ID;
 
-        EXCEPTION
+        EXCEPTION  -- this runs when exception is raised
          -- handle serialization failure (deadlock) means retry the transaction for 3 times
+         -- SERIALIZATION_FAILURE is a predefined exception in postgresql
             WHEN serialization_failure THEN
                 IF retry < 4 THEN
                     retry := retry + 1;
@@ -191,12 +194,76 @@ BEGIN
 
 $$ LANGUAGE plpgsql;
 
-SELECT create_order_with_transaction(3,ARRAY[1,2,3],ARRAY[1,1,1000]); 
---result will be out of stock for product 3
 
+-- for partial update and deadlock handling 
+CREATE OR REPLACE FUNCTION create_order_with_transaction_partial(customerId INT, productArray INT[], quantityArray INT[])
+RETURNS INT AS $$
+DECLARE
+    order_ID INT; --variable to store orderID
+    i INT; --variable to iterate over productArray
+    _price DECIMAL(10,2); --variable to store price
+    _stock INT; --variable to store stock
+    totalAmt DECIMAL(10,2) := 0; --variable to store total amount
+    is_transaction_successfull BOOLEAN := FALSE; --variable to store transaction status
+    retry INT := 0; --variable to store retry count
+BEGIN
+   
+            SAVEPOINT start_order;
+           -- insert into orders table and store orderID in order_ID total amount is 0 initially for the order
+            INSERT INTO Orders (CustomerId, TotalAmount)
+            VALUES (customerId, 0)
+            RETURNING OrderID INTO order_ID;
+           -- iterate over productArray
+            FOR i IN 1 .. array_length(productArray, 1) LOOP
+            --  INTO _stock, _price to store stock and price of product
+                SELECT Stock, Price INTO _stock, _price FROM Products WHERE ProductId = productArray[i] FOR UPDATE;
+                 -- FOR UPDATE will lock the row until transaction is completed used for concurrency control
+                IF _stock < quantityArray[i] THEN --if stock is insufficient then raise exception
+                    RAISE EXCEPTION 'Out of Stock for Product ID %', productArray[i]; --rollback transaction
+                    CONTINUE; -- continue to next iteration --for partial update
+                END IF;
+              -- insert into orderdetails table with orderID, productID, quantity and subtotal
+                INSERT INTO OrderDetails (OrderID, Quantity, ProductId, Subtotal)
+                VALUES (order_ID, quantityArray[i], productArray[i], _price * quantityArray[i]);
+              -- update stock in products table
+                UPDATE Products
+                SET Stock = Stock - quantityArray[i]
+                WHERE ProductId = productArray[i];
+              -- update total amount
+                totalAmt := totalAmt + (_price * quantityArray[i]);
+              -- if reached last iteration then set transaction status to true
+                is_transaction_successfull := TRUE;
+            END LOOP;
+            -- if transaction is successfull then update total amount in orders table
+            IF NOT is_transaction_successfull THEN
+                ROLLBACK;
+                RAISE EXCEPTION 'Order cancelled due to stock issues';
+            END IF;
+            -- update total amount in orders table
+            UPDATE Orders
+            SET TotalAmount = totalAmt
+            WHERE OrderID = order_ID;
+            
+            RETURN order_ID;
 
+        EXCEPTION  -- this runs when exception is raised if deadlock occurs
+         -- handle serialization failure (deadlock) means retry the transaction for 3 times
+         -- SERIALIZATION_FAILURE is a predefined exception in postgresql
+            WHEN serialization_failure THEN
+                IF retry < 4 THEN
+                    retry := retry + 1;
+                    ROLLBACK;
+                ELSE
+                    RAISE EXCEPTION 'Transaction failed after 3 attempts';
+                END IF;
+        END;
 
+$$ LANGUAGE plpgsql;
 
+SELECT create_order_with_transaction_complete(3,ARRAY[1,2,3],ARRAY[1,1,1000]); 
+SELECT create_order_with_transaction_partial(3,ARRAY[1,2,3],ARRAY[1,1,1000]);
+
+-- result will be out of stock for product 3
 
 --Task 4: SQL for Reporting and Analytics
 
