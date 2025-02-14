@@ -170,8 +170,9 @@ BEGIN
             END LOOP;
             -- if transaction is successfull then update total amount in orders table
             IF NOT is_transaction_successfull THEN
-                ROLLBACK;
                 RAISE EXCEPTION 'Order cancelled due to stock issues';
+                ROLLBACK;
+               
             END IF;
             -- update total amount in orders table
             UPDATE Orders
