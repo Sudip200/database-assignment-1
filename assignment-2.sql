@@ -209,7 +209,7 @@ DECLARE
     retry INT := 0; --variable to store retry count
 BEGIN
    
-            SAVEPOINT start_order;
+            --SAVEPOINT start_order; AS SAVEPOINT is not supported in postgresql 17
            -- insert into orders table and store orderID in order_ID total amount is 0 initially for the order
             INSERT INTO Orders (CustomerId, TotalAmount)
             VALUES (customerId, 0)
@@ -220,7 +220,7 @@ BEGIN
                 SELECT Stock, Price INTO _stock, _price FROM Products WHERE ProductId = productArray[i] FOR UPDATE;
                  -- FOR UPDATE will lock the row until transaction is completed used for concurrency control
                 IF _stock < quantityArray[i] THEN --if stock is insufficient then raise exception
-                    RAISE EXCEPTION 'Out of Stock for Product ID %', productArray[i]; --rollback transaction
+                    RAISE NOTICE 'Out of Stock for Product ID %', productArray[i]; --rollback transaction
                     CONTINUE; -- continue to next iteration --for partial update
                 END IF;
               -- insert into orderdetails table with orderID, productID, quantity and subtotal
