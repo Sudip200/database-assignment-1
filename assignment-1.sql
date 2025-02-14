@@ -77,6 +77,13 @@ JOIN Customers C ON O.CustomerId = C.CustomerId
 JOIN OrderDetails OD ON OD.OrderId = O.OrderId
 JOIN Products P ON OD.ProductId = P.ProductId
 WHERE C.CustomerId = 1;
+/*
+customername | productname |      orderdate      | quantity 
+--------------+-------------+---------------------+----------
+ Sudipto Das  | Laptop      | 2025-02-07 10:00:00 |        1
+ Sudipto Das  | Smartphone  | 2025-02-07 10:00:00 |        1
+(2 rows)
+*/
 
 -- 12. Find the most purchased product based on total quantity sold
 
@@ -86,6 +93,12 @@ JOIN Products P ON P.ProductId = OD.ProductId
 GROUP BY P.ProductId
 ORDER BY TotalQuantitySold DESC
 LIMIT 1; 
+/*
+productname | totalquantitysold 
+-------------+-------------------
+ Smartphone  |                 3
+(1 row)
+*/
 
 
 -- 13. Update stock quantity after an order is placed for a specific product (ProductID = 1)

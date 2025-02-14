@@ -2,6 +2,14 @@
 --Retrieve the top 3 customers with the highest total purchase amount.
 SELECT C.Name ,C.CustomerId ,SUM(O.totalamount) AS TotalPurchase  FROM Customers C JOIN Orders O ON 
 O.CustomerId = C.CustomerId GROUP BY C.CustomerId ORDER BY TotalPurchase DESC  LIMIT 3
+/*
+   name     | customerid | totalpurchase 
+-------------+------------+---------------
+ Sudipto Das |          1 |      16999.80
+ Rishav      |          5 |      13999.80
+ Rohit       |          4 |      11999.80
+(3 rows)
+*/
 
 --Show monthly sales revenue for the last 6 months using PIVOT.
 -- as pivot is not supported in postgresql so using case when 
@@ -23,6 +31,16 @@ JOIN
     Orders O ON O.OrderId = OD.OrderId
 GROUP BY 
     P.ProductName;
+-- as input data is for one month so all months will have 0 except current month
+/* productname      | Month_1 | Month_2 | Month_3 | Month_4 | Month_5 | Current_Month 
+----------------------+---------+---------+---------+---------+---------+---------------
+ Smartphone           |       0 |       0 |       0 |       0 |       0 |      30999.60
+ Bluetooth Headphones |       0 |       0 |       0 |       0 |       0 |      11999.80
+ Desk Chair           |       0 |       0 |       0 |       0 |       0 |       2999.80
+ Laptop               |       0 |       0 |       0 |       0 |       0 |      28999.60
+ Coffee Maker         |       0 |       0 |       0 |       0 |       0 |        899.90
+(5 rows)
+*/
 
 
 --Find the second most expensive product in each category using window functions.
@@ -30,7 +48,15 @@ GROUP BY
 SELECT ProductName ,Price , Category FROM (SELECT ProductName ,Price , Category ,RANK() OVER (PARTITION BY Category ORDER BY Price DESC ) AS RankOfProduct FROM Products)
 AS ranked_products WHERE ranked_products.RankOfProduct=2;
 
-
+--output
+--as  every category has only one product except electronics so only one product will be displayed
+-- change rankofproduct=1 to get the most expensive product of each category
+/* 
+productname |  price  |  category   
+-------------+---------+-------------
+ Smartphone  | 6999.90 | Electronics
+(1 row)
+*/
 
 --Task 2: Stored Procedures and Functions
 
@@ -165,7 +191,8 @@ BEGIN
 
 $$ LANGUAGE plpgsql;
 
-SELECT create_order_with_transaction(3,ARRAY[1,2,3],ARRAY[1,1,1000]); --result will be out of stock for product 3
+SELECT create_order_with_transaction(3,ARRAY[1,2,3],ARRAY[1,1,1000]); 
+--result will be out of stock for product 3
 
 
 
@@ -188,7 +215,20 @@ JOIN OrderDetails OD ON OD.OrderId = O.OrderId
 JOIN Products P ON OD.ProductId = P.ProductId
 GROUP BY  ROLLUP (c.Name,P.ProductName) HAVING (C.Name IS NOT NULL AND P.ProductName IS NOT NULL) 
 ORDER BY (C.Name,P.ProductName);
+--output this will show the total amount spent by each customer on each product and grand total
+/*
+ customername  |     productname      | quantity | subtotal | grandtotal 
+----------------+----------------------+----------+----------+------------
+ Jaydeep        | Coffee Maker         |        1 |   899.90 |     899.90
+ Rishav         | Smartphone           |        2 | 13999.80 |   13999.80
+ Rohit          | Bluetooth Headphones |        1 |  1999.90 |   11999.80
+ Rohit          | Laptop               |        1 |  9999.90 |   11999.80
+ Sudipto Das    | Laptop               |        1 |  9999.90 |   16999.80
+ Sudipto Das    | Smartphone           |        1 |  6999.90 |   16999.80
+ Susovon Mondol | Desk Chair           |        2 |  2999.80 |    2999.80
+(7 rows)
 
+*/
 -- Use window functions (LEAD, LAG) to show how a customer's order amount compares to their previous order amount.
 
 --customer's order amount compares to their previous order amount using LEAD and LAG
@@ -203,6 +243,15 @@ LAG(O.TotalAmount) OVER (
 PARTITION BY O.CustomerID ORDER BY O.OrderDate) AS NextAmount
 FROM Orders O
 JOIN Customers C ON O.CustomerId = C.CustomerId ORDER BY C.CustomerId ,O.OrderDate;
-
-
+-- as there is only one order for each customer so previous and next amount will be null
+--output
+/* customername  |      orderdate      | currentamount | previousamount | nextamount 
+----------------+---------------------+---------------+----------------+------------
+ Sudipto Das    | 2025-02-07 10:00:00 |      16999.80 |                |           
+ Susovon Mondol | 2025-02-08 11:30:00 |       2999.80 |                |           
+ Jaydeep        | 2025-02-09 14:15:00 |        899.90 |                |           
+ Rohit          | 2025-02-10 15:00:00 |      11999.80 |                |           
+ Rishav         | 2025-02-11 16:45:00 |      13999.80 |                |           
+(5 rows)
+*/
 
