@@ -3,6 +3,13 @@ CREATE DATABASE EcommerceDB;
 -- 2. Switch to the newly created database
 --\c EcommerceDB;
 -- 3. Create Customers table
+-- Phone number should be between 10 to 15 digits
+-- Email should be in the format of 
+-- [a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}
+--- Name, Email, and Phone are required fields
+-- RegistrationDate should have a default value of the current timestamp
+-- Email should be unique
+-- Phone and Email should be validated using CHECK constraints
 CREATE TABLE Customers (
     CustomerId SERIAL PRIMARY KEY,  
     Name VARCHAR(100) NOT NULL,  
@@ -14,6 +21,10 @@ CREATE TABLE Customers (
     CHECK (Email ~ '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 );
 -- 4. Create Products table
+-- fields: ProductID, ProductName, Category, Price, Stock
+-- ProductName, Price, and Stock are required fields
+-- Stock and Price should be non-negative
+
 CREATE TABLE Products (
     ProductID SERIAL PRIMARY KEY,  
     ProductName VARCHAR(100) NOT NULL,  
@@ -24,6 +35,12 @@ CREATE TABLE Products (
     CHECK (Price >=0)
 );
 -- 5. Create Orders table
+-- fields: OrderID, CustomerID, OrderDate, TotalAmount
+-- OrderDate should have a default value of the current timestamp
+-- CustomerID should be a foreign key referencing the Customers table
+-- TotalAmount should be non-negative
+-- When a customer is deleted, all their orders should be deleted as well (ON DELETE CASCADE)
+
 CREATE TABLE Orders (
     OrderId SERIAL PRIMARY KEY,  
     CustomerId INT NOT NULL,  
@@ -32,6 +49,12 @@ CREATE TABLE Orders (
     CONSTRAINT FK_customerid FOREIGN KEY (CustomerId) REFERENCES Customers(CustomerId) ON DELETE CASCADE
 );
 -- 6. Create OrderDetails table
+-- fields: OrderDetailId, OrderID, ProductID, Quantity, SubTotal
+-- Quantity and SubTotal should be non-negative
+-- OrderID and ProductID should be foreign keys referencing Orders and Products tables respectively
+-- When an order is deleted, all its details should be deleted as well (ON DELETE CASCADE)
+-- When a product is deleted, all its order details should be deleted as well (ON DELETE CASCADE)
+
 CREATE TABLE OrderDetails (
     OrderDetailId SERIAL PRIMARY KEY,  
     OrderID INT NOT NULL,  
@@ -74,6 +97,8 @@ INSERT INTO OrderDetails (OrderID, ProductID, Quantity, SubTotal) VALUES
 (5, 2, 2, 13999.80);
 
 -- 11. Retrieve orders for a specific customer (CustomerID = 1)
+-- Display CustomerName, ProductName, OrderDate, and Quantity
+-- Use JOIN to retrieve data from multiple tables
 
 SELECT C.Name AS CustomerName, P.ProductName, O.OrderDate, OD.Quantity
 FROM Orders O
@@ -90,6 +115,9 @@ customername | productname |      orderdate      | quantity
 */
 
 -- 12. Find the most purchased product based on total quantity sold
+-- Display ProductName and TotalQuantitySold
+-- Use GROUP BY and ORDER BY to calculate the total quantity sold for each product and find the most purchased product
+
 
 SELECT P.ProductName, SUM(OD.Quantity) AS TotalQuantitySold
 FROM OrderDetails OD
@@ -106,10 +134,12 @@ productname | totalquantitysold
 
 
 -- 13. Update stock quantity after an order is placed for a specific product (ProductID = 1)
+-- Use a subquery to calculate the total quantity of a specific product sold and update the stock quantity accordingly
 
 UPDATE Products 
 SET Stock = Stock - (SELECT SUM(Quantity) FROM OrderDetails WHERE ProductId = 1) --this will update the stock quantity after an order is placed
 WHERE ProductId = 1;
 
 -- 14. Delete a customer record (CustomerID = 5) while maintaining referential integrity
+-- Use ON DELETE CASCADE to delete all orders associated with the customer
 DELETE FROM Customers WHERE CustomerID = 5; --this will delete the customer record with CustomerID = 5 without violating referential integrity
